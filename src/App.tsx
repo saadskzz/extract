@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Copy, CheckCircle, AlertCircle, ExternalLink, Loader2, Info, Globe, Eye, Link } from 'lucide-react';
+import { Search, Copy, CheckCircle, AlertCircle, ExternalLink, Loader2, Info, Globe, Eye, Link, Play } from 'lucide-react';
+import VideoPlayer from './components/VideoPlayer';
 
 interface ExtractResponse {
   success: boolean;
@@ -22,6 +23,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ExtractResponse | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [selectedStream, setSelectedStream] = useState<{ url: string; type: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +77,18 @@ function App() {
     if (url.startsWith('ws')) return { type: 'WebSocket', color: 'bg-yellow-100 text-yellow-800' };
     if (url.startsWith('webrtc-stream:')) return { type: 'WebRTC', color: 'bg-red-100 text-red-800' };
     return { type: 'Stream', color: 'bg-gray-100 text-gray-800' };
+  };
+
+  const canPlayInBrowser = (url: string) => {
+    const urlType = getUrlType(url);
+    return ['HLS', 'DASH', 'TS', 'Stream'].includes(urlType.type) && 
+           !url.startsWith('webrtc-stream:') && 
+           !url.startsWith('ws');
+  };
+
+  const handlePlayStream = (streamUrl: string) => {
+    const urlInfo = getUrlType(streamUrl);
+    setSelectedStream({ url: streamUrl, type: urlInfo.type });
   };
 
   return (
@@ -190,22 +204,33 @@ function App() {
                             {getUrlType(result.primaryUrl).type}
                           </span>
                         </div>
-                        <button
-                          onClick={() => copyToClipboard(result.primaryUrl!)}
-                          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg"
-                        >
-                          {copied === result.primaryUrl ? (
-                            <>
-                              <CheckCircle className="w-4 h-4" />
-                              <span>Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4" />
-                              <span>Copy</span>
-                            </>
+                        <div className="flex items-center space-x-2">
+                          {canPlayInBrowser(result.primaryUrl) && (
+                            <button
+                              onClick={() => handlePlayStream(result.primaryUrl!)}
+                              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+                            >
+                              <Play className="w-4 h-4" />
+                              <span>Play</span>
+                            </button>
                           )}
-                        </button>
+                          <button
+                            onClick={() => copyToClipboard(result.primaryUrl!)}
+                            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+                          >
+                            {copied === result.primaryUrl ? (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div className="bg-white/80 rounded-xl p-4 border border-blue-100">
                         <code className="text-sm text-gray-800 break-all font-mono">{result.primaryUrl}</code>
@@ -235,17 +260,28 @@ function App() {
                                   </div>
                                   <code className="text-sm text-gray-800 break-all font-mono block">{streamUrl}</code>
                                 </div>
-                                <button
-                                  onClick={() => copyToClipboard(streamUrl)}
-                                  className="flex-shrink-0 text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                                  title="Copy URL"
-                                >
-                                  {copied === streamUrl ? (
-                                    <CheckCircle className="w-4 h-4 text-green-600" />
-                                  ) : (
-                                    <Copy className="w-4 h-4" />
+                                <div className="flex items-center space-x-2 flex-shrink-0">
+                                  {canPlayInBrowser(streamUrl) && (
+                                    <button
+                                      onClick={() => handlePlayStream(streamUrl)}
+                                      className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded-lg transition-all duration-200"
+                                      title="Play Stream"
+                                    >
+                                      <Play className="w-4 h-4" />
+                                    </button>
                                   )}
-                                </button>
+                                  <button
+                                    onClick={() => copyToClipboard(streamUrl)}
+                                    className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                    title="Copy URL"
+                                  >
+                                    {copied === streamUrl ? (
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -358,6 +394,15 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Video Player Modal */}
+      {selectedStream && (
+        <VideoPlayer
+          src={selectedStream.url}
+          type={selectedStream.type}
+          onClose={() => setSelectedStream(null)}
+        />
+      )}
     </div>
   );
 }
