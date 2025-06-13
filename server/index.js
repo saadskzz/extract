@@ -130,6 +130,8 @@ app.post('/api/extract-streams', async (req, res) => {
     }
 
     console.log(`Fetching URL with Puppeteer: ${url}`);
+    
+    // Enhanced browser launch configuration with better Chrome detection
     browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -139,8 +141,16 @@ app.post('/api/extract-streams', async (req, res) => {
         '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--disable-features=IsolateOrigins,site-per-process',
         '--ignore-certificate-errors',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-default-apps'
       ],
+      // Explicitly set executable path if needed
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
+    
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setExtraHTTPHeaders({
@@ -342,6 +352,16 @@ app.post('/api/extract-streams', async (req, res) => {
     });
   } catch (error) {
     console.error('Error:', error.message, error.stack);
+    
+    // Handle Chrome/Puppeteer specific errors
+    if (error.message.includes('Could not find Chrome') || error.message.includes('ChromeLauncher')) {
+      return res.status(500).json({ 
+        error: 'Chrome browser not found', 
+        details: 'Please run "npx puppeteer browsers install chrome" to install the required Chrome browser.',
+        errorCode: 'CHROME_NOT_FOUND' 
+      });
+    }
+    
     if (error.message.includes('net::ERR_NAME_NOT_RESOLVED')) {
       return res.status(400).json({ error: 'Domain not found', details: 'Check the URL.', errorCode: 'ENOTFOUND' });
     }
